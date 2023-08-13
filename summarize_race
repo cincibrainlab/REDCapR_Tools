@@ -23,6 +23,8 @@ summarize_race <- function(data, prefix = "demo_race___", group_var,
   # Calculate counts for each race column stratified by the grouping variable
   summary_list <- lapply(race_columns, function(race_col) {
     tbl <- table(data[[group_var]], data[[race_col]])
+    # Ensure all tables have the same row names for consistency
+    tbl <- tbl[unique(data[[group_var]]), ]
     return(tbl)
   })
 
@@ -31,7 +33,7 @@ summarize_race <- function(data, prefix = "demo_race___", group_var,
   colnames(summary_df) <- race_labels
   
   # Transform the data frame to a long format
-  long_df <- tidyr::pivot_longer(summary_df, 
+  long_df <- tidyr::pivot_longer(as.data.frame(summary_df), 
                                  cols = all_of(race_labels), 
                                  names_to = "Race", 
                                  values_to = "Count")
