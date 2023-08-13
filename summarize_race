@@ -1,31 +1,13 @@
-#' Summarize Race Information from REDCap Data with Grouping
-#'
-#' This function takes a REDCap data frame and summarizes the race information 
-#' from columns with a specific prefix, stratified by a grouping variable.
-#'
-#' @param data A data frame representing the REDCap data.
-#' @param prefix A string representing the prefix of race columns. Default is "demo_race___".
-#' @param group_var A string representing the name of the grouping variable column.
-#' @param pattern A regular expression pattern to extract the race descriptor from the label.
-#' @param replacement A string representing the replacement pattern to capture the desired text.
-#'
-#' @return A data frame with columns for group, race descriptors, counts, and proportions.
-#' @export
-#'
-#' @examples
-#' \dontrun{
-#' race_summary_grouped <- summarize_race(data = redcap_data, 
-#'                                        group_var = "some_grouping_variable", 
-#'                                        pattern = ".*=(.*)\\)", 
-#'                                        replacement = "\\1")
-#' print(race_summary_grouped)
-#' }
 summarize_race <- function(data, prefix = "demo_race___", group_var, 
                            pattern = ".*=(.*)\\)", replacement = "\\1") {
+  
   # Check if group_var exists
   if (!group_var %in% names(data)) {
     stop(paste0("The specified grouping variable '", group_var, "' does not exist in the data."))
   }
+  
+  # Handle NA values in the grouping variable by converting them to a string "Missing"
+  data[[group_var]] <- ifelse(is.na(data[[group_var]]), "Missing", data[[group_var]])
   
   # Extract columns with the specific prefix
   race_columns <- grep(prefix, colnames(data), value = TRUE)
@@ -55,7 +37,9 @@ summarize_race <- function(data, prefix = "demo_race___", group_var,
                                  values_to = "Count")
   
   # Calculate proportions
-  long_df$Proportion <- long_df$Count / sum(long_df$Count)
+  total_counts <- table(data[[group_var]])
+  long_df$Proportion <- mapply(function(group, count) count/total_counts[group], 
+                               long_df$`data[[group_var]]`, long_df$Count)
   
   return(long_df)
 }
