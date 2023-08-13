@@ -20,5 +20,5 @@ Each utility or function comes with its own documentation. To understand how to 
 To source a specific function directly from GitHub, you can use the following R code:
 
 ```R
-source_url <- "https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/REDCapR_Tools/main/path_to_function.R"
+source_url <- "https://raw.githubusercontent.com/cincibrainlab/REDCapR_Tools/main/path_to_function.R"
 source(url(source_url))
