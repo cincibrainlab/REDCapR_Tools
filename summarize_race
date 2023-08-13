@@ -1,50 +1,61 @@
-library(dplyr)
-library(tidyr)
-
-#' Summarize Race Information from REDCap Data
+#' Summarize Race Information from REDCap Data with Grouping
 #'
 #' This function takes a REDCap data frame and summarizes the race information 
-#' from columns with a specific prefix, grouped by a specified variable.
+#' from columns with a specific prefix, stratified by a grouping variable.
 #'
 #' @param data A data frame representing the REDCap data.
 #' @param prefix A string representing the prefix of race columns. Default is "demo_race___".
-#' @param group_var A string representing the column name for grouping. NULL if no grouping is required.
+#' @param group_var A string representing the name of the grouping variable column.
 #' @param pattern A regular expression pattern to extract the race descriptor from the label.
 #' @param replacement A string representing the replacement pattern to capture the desired text.
 #'
-#' @return A tibble with columns for race descriptors, counts, proportions, and group levels (if specified).
+#' @return A data frame with columns for group, race descriptors, counts, and proportions.
 #' @export
 #'
 #' @examples
 #' \dontrun{
-#' race_summary <- summarize_race(redcap_data, group_var = "age_group", 
-#'                                pattern = ".*=(.*)\\)", replacement = "\\1")
-#' print(race_summary)
+#' race_summary_grouped <- summarize_race(data = redcap_data, 
+#'                                        group_var = "some_grouping_variable", 
+#'                                        pattern = ".*=(.*)\\)", 
+#'                                        replacement = "\\1")
+#' print(race_summary_grouped)
 #' }
-summarize_race <- function(data, prefix = "demo_race___", group_var = NULL,
+summarize_race <- function(data, prefix = "demo_race___", group_var, 
                            pattern = ".*=(.*)\\)", replacement = "\\1") {
+  # Check if group_var exists
+  if (!group_var %in% names(data)) {
+    stop(paste0("The specified grouping variable '", group_var, "' does not exist in the data."))
+  }
   
+  # Extract columns with the specific prefix
   race_columns <- grep(prefix, colnames(data), value = TRUE)
   
+  # Extract race labels and then extract the actual race descriptor from the label
   race_labels <- sapply(race_columns, function(col) {
     label <- attr(data[[col]], "label")
+    # Extracting text using provided pattern and replacement
     race <- gsub(pattern, replacement, label)
     return(trimws(race))
   })
   
-  # Transform data to long format for easier summarization
-  data_long <- data %>%
-    select(all_of(c(race_columns, group_var))) %>%
-    pivot_longer(cols = all_of(race_columns), names_to = "Race_Column", values_to = "Value")
-  
-  # Add Race descriptor to the long format data
-  data_long$Race <- race_labels[match(data_long$Race_Column, race_columns)]
-  
-  # Summarize based on grouping variable
-  summary_data <- data_long %>%
-    group_by(Race, !!sym(group_var)) %>%
-    summarize(Count = sum(Value, na.rm = TRUE), .groups = 'drop') %>%
-    mutate(Proportion = Count / sum(Count))
+  # Calculate counts for each race column stratified by the grouping variable
+  summary_list <- lapply(race_columns, function(race_col) {
+    tbl <- table(data[[group_var]], data[[race_col]])
+    return(tbl)
+  })
 
-  return(summary_data)
+  # Convert the list to a data frame
+  summary_df <- do.call(cbind, summary_list)
+  colnames(summary_df) <- race_labels
+  
+  # Transform the data frame to a long format
+  long_df <- tidyr::pivot_longer(summary_df, 
+                                 cols = all_of(race_labels), 
+                                 names_to = "Race", 
+                                 values_to = "Count")
+  
+  # Calculate proportions
+  long_df$Proportion <- long_df$Count / sum(long_df$Count)
+  
+  return(long_df)
 }
