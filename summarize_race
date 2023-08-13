@@ -1,16 +1,34 @@
-summarize_race <- function(data, prefix = "demo_race___", group_var, 
+#' Summarize Race Information from REDCap Data
+#'
+#' This function takes a REDCap data frame and summarizes the race information 
+#' from columns with a specific prefix. It assumes the column labels are in 
+#' a format specified by the user.
+#'
+#' @param data A data frame representing the REDCap data.
+#' @param prefix A string representing the prefix of race columns. Default is "demo_race___".
+#' @param pattern A regular expression pattern to extract the race descriptor from the label.
+#' @param replacement A string representing the replacement pattern to capture the desired text.
+#'
+#' @return A data frame with columns for race descriptors, counts, and proportions.
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' race_summary <- summarize_race(redcap_data, pattern = ".*=(.*)\\)", replacement = "\\1")
+#' print(race_summary)
+#' }
+summarize_race <- function(data, prefix = "demo_race___", 
                            pattern = ".*=(.*)\\)", replacement = "\\1") {
-  
-  # Check if group_var exists
-  if (!group_var %in% names(data)) {
-    stop(paste0("The specified grouping variable '", group_var, "' does not exist in the data."))
-  }
-  
-  # Handle NA values in the grouping variable by converting them to a string "Missing"
-  data[[group_var]] <- ifelse(is.na(data[[group_var]]), "Missing", data[[group_var]])
-  
   # Extract columns with the specific prefix
   race_columns <- grep(prefix, colnames(data), value = TRUE)
+  
+  # Initialize an empty vector to store counts
+  race_counts <- numeric(length(race_columns))
+  
+  # Calculate counts for each race column
+  for (i in seq_along(race_columns)) {
+    race_counts[i] <- sum(data[[race_columns[i]]], na.rm = TRUE)
+  }
   
   # Extract race labels and then extract the actual race descriptor from the label
   race_labels <- sapply(race_columns, function(col) {
@@ -20,28 +38,8 @@ summarize_race <- function(data, prefix = "demo_race___", group_var,
     return(trimws(race))
   })
   
-  # Calculate counts for each race column stratified by the grouping variable
-  summary_list <- lapply(race_columns, function(race_col) {
-    tbl <- table(data[[group_var]], data[[race_col]])
-    # Ensure all tables have the same row names for consistency
-    tbl <- tbl[unique(data[[group_var]]), ]
-    return(tbl)
-  })
-
-  # Convert the list to a data frame
-  summary_df <- do.call(cbind, summary_list)
-  colnames(summary_df) <- race_labels
-  
-  # Transform the data frame to a long format
-  long_df <- tidyr::pivot_longer(as.data.frame(summary_df), 
-                                 cols = all_of(race_labels), 
-                                 names_to = "Race", 
-                                 values_to = "Count")
-  
-  # Calculate proportions
-  total_counts <- table(data[[group_var]])
-  long_df$Proportion <- mapply(function(group, count) count/total_counts[group], 
-                               long_df$`data[[group_var]]`, long_df$Count)
-  
-  return(long_df)
+  # Create a summary data frame
+  summary_df <- data.frame(Race = race_labels, Count = race_counts, 
+                           Proportion = race_counts / nrow(data))
+  return(summary_df)
 }
