@@ -15,15 +15,10 @@ REDCap (Research Electronic Data Capture) is a secure, web-based application des
 
 Each utility or function comes with its own documentation. To understand how to use them, refer to the specific function's documentation or example provided.
 
-## Contributing
+### Sourcing Functions Directly
 
-Contributions to enhance the toolset or add new functionalities are welcome. Please open issues to discuss potential enhancements or submit pull requests directly.
+To source a specific function directly from GitHub, you can use the following R code:
 
-## License
-
-(Consider adding a license for the repository if you have one in mind)
-
-## Contact
-
-(You can provide an email or another form of contact for users who might have questions)
-
+```R
+source_url <- "https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/REDCapR_Tools/main/path_to_function.R"
+source(url(source_url))
