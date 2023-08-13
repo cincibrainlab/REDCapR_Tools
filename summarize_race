@@ -1,45 +1,50 @@
+library(dplyr)
+library(tidyr)
+
 #' Summarize Race Information from REDCap Data
 #'
 #' This function takes a REDCap data frame and summarizes the race information 
-#' from columns with a specific prefix. It assumes the column labels are in 
-#' a format specified by the user.
+#' from columns with a specific prefix, grouped by a specified variable.
 #'
 #' @param data A data frame representing the REDCap data.
 #' @param prefix A string representing the prefix of race columns. Default is "demo_race___".
+#' @param group_var A string representing the column name for grouping. NULL if no grouping is required.
 #' @param pattern A regular expression pattern to extract the race descriptor from the label.
 #' @param replacement A string representing the replacement pattern to capture the desired text.
 #'
-#' @return A data frame with columns for race descriptors, counts, and proportions.
+#' @return A tibble with columns for race descriptors, counts, proportions, and group levels (if specified).
 #' @export
 #'
 #' @examples
 #' \dontrun{
-#' race_summary <- summarize_race(redcap_data, pattern = ".*=(.*)\\)", replacement = "\\1")
+#' race_summary <- summarize_race(redcap_data, group_var = "age_group", 
+#'                                pattern = ".*=(.*)\\)", replacement = "\\1")
 #' print(race_summary)
 #' }
-summarize_race <- function(data, prefix = "demo_race___", 
+summarize_race <- function(data, prefix = "demo_race___", group_var = NULL,
                            pattern = ".*=(.*)\\)", replacement = "\\1") {
-  # Extract columns with the specific prefix
+  
   race_columns <- grep(prefix, colnames(data), value = TRUE)
   
-  # Initialize an empty vector to store counts
-  race_counts <- numeric(length(race_columns))
-  
-  # Calculate counts for each race column
-  for (i in seq_along(race_columns)) {
-    race_counts[i] <- sum(data[[race_columns[i]]], na.rm = TRUE)
-  }
-  
-  # Extract race labels and then extract the actual race descriptor from the label
   race_labels <- sapply(race_columns, function(col) {
     label <- attr(data[[col]], "label")
-    # Extracting text using provided pattern and replacement
     race <- gsub(pattern, replacement, label)
     return(trimws(race))
   })
   
-  # Create a summary data frame
-  summary_df <- data.frame(Race = race_labels, Count = race_counts, 
-                           Proportion = race_counts / nrow(data))
-  return(summary_df)
+  # Transform data to long format for easier summarization
+  data_long <- data %>%
+    select(all_of(c(race_columns, group_var))) %>%
+    pivot_longer(cols = all_of(race_columns), names_to = "Race_Column", values_to = "Value")
+  
+  # Add Race descriptor to the long format data
+  data_long$Race <- race_labels[match(data_long$Race_Column, race_columns)]
+  
+  # Summarize based on grouping variable
+  summary_data <- data_long %>%
+    group_by(Race, !!sym(group_var)) %>%
+    summarize(Count = sum(Value, na.rm = TRUE), .groups = 'drop') %>%
+    mutate(Proportion = Count / sum(Count))
+
+  return(summary_data)
 }
